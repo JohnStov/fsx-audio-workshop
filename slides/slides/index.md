@@ -32,7 +32,7 @@ Regular back & forth displacement of air molecules
 
 Microphone:
 
-* electro-mechanical device 
+* electro-mechanical device
 * turns vibration into electrical signal
 * many ways to capture that signal
 
