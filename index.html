@@ -55,9 +55,158 @@
 <p><img src="images/Twitter.png" alt="twitter" />@johnstovin</p>
 <h3>FSharp Exchange London</h3>
 <h3>4-5 April 2018</h3>
+<aside class="notes">
+Gauge the audience:<br/>
+* F# experience level?<br/>
+* Digital audio knowledge?<br/>
+</aside>
 </section>
 <section >
-<p>Page 2</p>
+<section >
+<h2>What is sound?</h2>
+<p>Regular back &amp; forth displacement of air molecules</p>
+<p>-&gt; Moves your eardrum</p>
+<p>-&gt; Stimulates aural nerves</p>
+<p>-&gt; Perception of <em>sound</em></p>
+</section>
+<section >
+<h2>How can we capture sound?</h2>
+<p>Microphone:</p>
+<ul>
+<li>electro-mechanical device</li>
+<li>turns vibration into electrical signal</li>
+</ul>
+</section>
+<section >
+<h2>Audio waveform example</h2>
+<p><img src="images/waveform.png" alt="Waveform" />]</p>
+<p>y-axis - voltage (around 0)
+x -axis - time</p>
+</section>
+<section >
+<h2>Observations</h2>
+<ol>
+<li><em>Loudness</em> corresponds to peak-to-peak voltage</li>
+<li><em>Pitch</em> corresponds to peak-to-peak frequency</li>
+</ol>
+<aside class="notes">
+Electronic circuits are designed to work correctly (linearly) within certain tolerance ranges. If the voltage level of the input signal exceeds the designed level, the output will not be be a true reflection of the input. This is distortion.<br/>
+</aside>
+<aside class="notes">
+Amplifiers will often distort by clipping. The output will be clamped at a maximum level even if the input changes. So we try to keep our signals within a constrained dynamic range. <br/>
+</aside>
+</section>
+<section >
+<h2>Example waveforms</h2>
+<ol>
+<li>
+No signal - silence
+<img src="images/no_signal.png" alt="No Signal" />]
+</li>
+<li>
+Random values - noise
+<img src="images/noise.png" alt="Noise" />]
+</li>
+<li>
+Sine wave
+<img src="images/sine.png" alt="Sine" />]
+</li>
+<li>
+Square wave
+<img src="images/square.png" alt="Square" />]
+</li>
+<li>
+Triangle wave
+<img src="images/triangle.png" alt="Triangle" />]
+</li>
+</ol>
+<aside class="notes">
+Note that sine wave sounds 'purer' that the other waveforms - will explore this later<br/>
+</aside>
+</section>
+<section >
+<h2>Digital recording</h2>
+<p><em>Sample</em> the analogue signal at regular intervals</p>
+<p>Convert the instantaneous voltage into a number between 0 and some limit (+/- 32767 - 8-bit) - <em>Quantisation</em>, <em>A/D Conversion</em></p>
+<aside class="notes">
+More bits -> higher accuracy, better quality reproduction<br/>
+</aside>
+<p>Store the sequence of numbers generated</p>
+<p>For playback - regenerate instantaneous voltage synchronised to clock - <em>D/A Conversion</em></p>
+</section>
+<section >
+<h2>Digital Synthesis</h2>
+<p>Generate sequences of samples algorithmically, then perform D/A conversion</p>
+<aside class="notes">
+In reality, we prefer floating point values - it makes computation easier - then we convert them to fixed point at the last minute<br/>
+</aside>
+</section>
+</section>
+<section >
+<section >
+<h2>Let's get coding!</h2>
+<aside class="notes">
+I prefer VSCode with Ionide plugins<br/>
+Create a new folder<br/>
+Open folder in VSCode<br/>
+Ctrl+Shift+P - F#: New Project - type: console - call it AudioWorkshop<br/>
+  Gives us a new project with Fake & Paket<br/>
+`git init` if you want to<br/>
+open console (Ctrl+Shift+') - cd to AudioWorkshop and `dotnet run`<br/>
+</aside>
+</section>
+<section >
+<h2>Audio library</h2>
+<p>We'll use <strong>NAudio</strong>: <a href="https://github.com/naudio/NAudio">https://github.com/naudio/NAudio</a></p>
+<aside class="notes">
+open the project file<br/>
+Ctrl+Shift+P - Paket: Add Nuget Package (to current project)<br/>
+NAudio<br/>
+Adds the dependency to the currecnt project<br/>
+</aside>
+</section>
+<section >
+<h2>Implementing a provider</h2>
+<aside class="notes">
+snippet aud1<br/>
+</aside>
+<aside class="notes">
+NAudio needs a callback<br/>
+You do this by implementing the `IWaveProvider` interface<br/>
+Tells NAudio about the structure of the data you'll be giving it.<br/>
+Asks you to fill a buffer when more samples are needed<br/>
+</aside>
+<aside class="notes">
+There's a for loop and a mutable index<br/>
+Note the |> operator in main<br/>
+</aside>
+</section>
+</section>
+<section >
+<section >
+<h2>Generalising</h2>
+<p>Let's change this to provide an arbitrary set of samples and have the system play them?</p>
+<aside class="notes">
+snippet aud2 - replace everything<br/>
+</aside>
+</section>
+<section >
+<h2>Sidenote</h2>
+<p>Random access in lists is really expensive</p>
+<aside class="notes">
+I originally implemented AudioSample as float list<br/>
+F# can't traverse the list to the end faste enough<br/>
+change it and show what happens<br/>
+</aside>
+</section>
+<section >
+<h2>Lazy evaluation</h2>
+<p>I don't want to have to define my entire sound before I play it</p>
+<p><code>seq</code> is F#'s wrapper around <code>IEnumerable</code></p>
+<p>Let's reimplement...</p>
+<aside class="notes">
+snippet aud3<br/>
+</section>
 </section>
 
 
