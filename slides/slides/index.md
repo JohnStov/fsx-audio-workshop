@@ -121,9 +121,42 @@ We'll use **NAudio**: <https://github.com/naudio/NAudio>
 
 ## Implementing a provider
 
+' snippet aud1
+
 ' NAudio needs a callback
 ' You do this by implementing the `IWaveProvider` interface
 ' Tells NAudio about the structure of the data you'll be giving it.
 ' Asks you to fill a buffer when more samples are needed
-' snippet aud1
 
+' There's a for loop and a mutable index
+' Note the |> operator in main
+
+***
+
+## Generalising
+
+Let's change this to provide an arbitrary set of samples and have the system play them?
+
+' snippet aud2 - replace everything
+
+---
+
+## Sidenote
+
+Random access in lists is really expensive
+
+' I originally implemented AudioSample as float list
+' F# can't traverse the list to the end faste enough
+' change it and show what happens
+
+---
+
+## Lazy evaluation
+
+I don't want to have to define my entire sound before I play it
+
+`seq` is F#'s wrapper around `IEnumerable`
+
+Let's reimplement...
+
+' snippet aud3
