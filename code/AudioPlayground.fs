@@ -56,10 +56,18 @@ let makeSine sampleRate frequency =
     let gen theta = Some (Math.Sin theta, (theta + delta) % TWOPI)
     Seq.unfold gen 0.0
 
+let square theta = 
+    if theta < Math.PI then -1.0 else 1.0
+
+let makeSquare sampleRate frequency = 
+    let delta = TWOPI * frequency / float sampleRate
+    let gen theta = Some (square theta, (theta + delta) % TWOPI)
+    Seq.unfold gen 0.0
+ 
 [<EntryPoint>]
 let main _ =
     let output = new WasapiOut(AudioClientShareMode.Shared, 1)
-    makeSine 44100 440.0 |> SeqProvider  |> output.Init
+    makeSquare 44100 440.0 |> SeqProvider  |> output.Init
     output.Play ()
     Thread.Sleep 2000
     output.Stop ()
