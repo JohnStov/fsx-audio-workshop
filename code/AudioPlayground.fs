@@ -43,8 +43,12 @@ type SeqProvider (waveform: AudioSample) =
 let makeNoise =
     let random = Random()
     let rescale value = (value * 2.0) - 1.0
-    let gen _ = Some (random.NextDouble() |> rescale, ()) 
-    Seq.unfold gen ()
+    let rec noise () = 
+        seq { 
+            yield random.NextDouble() |> rescale
+            yield! noise () 
+        }
+    noise ()
 
 let makeNoise1Sec = 
     makeNoise |> Seq.take 44100

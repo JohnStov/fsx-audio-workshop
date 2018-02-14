@@ -165,6 +165,8 @@ Let's reimplement...
 
 ## More complex signals
 
+---
+
 ### Sinewave
 
 We need to introduce _frequency_ (f) - how often the waveform repeats per second
@@ -179,6 +181,39 @@ The current _phase angle_ will be called _theta_
 
 The amplitude is calculated as _sin theta_
 
-___
+---
 
 ## Higher order functions
+
+In functional languages, we don't like write our own loops.
+
+The standard library provides functions that allow us to provide repeated operations. Many of these are _higher order functions_ - functions that take other functions as an argument.
+
+`Seq.unfold` generates `seq<'T>`. It takes an initial state and a function.
+
+The function signature is `'State -> ('T * 'State) option`
+
+If the function returns `None`, the sequence terminates.
+
+If it returns `Some ('T * 'State)`, the `'T` value is appended to the sequence, and the function is called again with the new value of `'State`.
+
+---
+
+### Squarewave
+
+We can create a function to generate a square wave.
+
+If theta < PI, the value is -1.0, otherwise it is +1.0
+
+We can create a new function to generate squarewaves by substituting our square function for Math.Sin
+
+---
+
+### Refactoring to higher order functions
+
+We can refactor the code duplication to a higher-order function that takes our generator function as an argument
+
+If we make the generator function the first argument we can use partial application to generate a family of sound generator functions
+
+
+
