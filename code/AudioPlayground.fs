@@ -26,10 +26,15 @@ type ArrayProvider (waveform: AudioSample) =
                 // update position
                 writeIndex <- writeIndex + bytes.Length
 
+            let (|NotEnd|_|) (waveform : AudioSample) index =
+                if index < waveform.Length then Some index else None
+
             let nSamples = count / bytesPerSample
             for _ in [0 .. nSamples - 1] do
-                // guard against buffer overrun
-                let sample = if readIndex < waveform.Length then waveform.[readIndex] else 0.0
+                let sample = 
+                    match readIndex with
+                    | NotEnd waveform i -> waveform.[i]
+                    | _ -> 0.0
                 readIndex <- readIndex + 1
                 putSample sample buffer
             // return the number of bytes written
