@@ -210,5 +210,24 @@
 			"let makeSawtooth = generate sawtooth"
 		],
 		"description": "Generalised waveform generator"
+	},
+	"Pluck": {
+		"prefix": "aud5",
+		"body": [
+			"let pluck sampleRate frequency =",
+			"// frequency is determined by the length of the buffer",
+			"let bufferLength = sampleRate / int frequency",
+			"// start with noise",
+			"let buffer = makeNoise |> Seq.take bufferLength |> Seq.toArray",
+			"// go round the buffer repeatedly, playing each sample, ",
+			"// then averaging with previous and decaying",
+			"let gen index =",
+			"    let nextIndex = (index + 1) % bufferLength",
+			"    let value = buffer.[nextIndex]",
+			"    buffer.[nextIndex] <- (value + buffer.[index]) / 2.0 * 0.996",
+			"    Some(value, nextIndex)",
+			"Seq.unfold gen (bufferLength - 1)"
+		],
+		"description": "The Karplus-Strong algorithm"
 	}
 }

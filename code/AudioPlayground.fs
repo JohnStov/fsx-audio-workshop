@@ -71,11 +71,25 @@ let sawtooth theta =
     (theta / Math.PI) - 1.0
 
 let makeSawtooth = generate sawtooth
+
+let pluck sampleRate frequency =
+    // frequency is determined by the length of the buffer
+    let bufferLength = sampleRate / int frequency
+    // start with noise
+    let buffer = makeNoise |> Seq.take bufferLength |> Seq.toArray
+    // go round the buffer repeatedly, playing each sample, 
+    // then averaging with previous and decaying
+    let gen index =
+        let nextIndex = (index + 1) % bufferLength
+        let value = buffer.[nextIndex]
+        buffer.[nextIndex] <- (value + buffer.[index]) / 2.0 * 0.996
+        Some(value, nextIndex)
+    Seq.unfold gen (bufferLength - 1)
  
 [<EntryPoint>]
 let main _ =
     let output = new WasapiOut(AudioClientShareMode.Shared, 1)
-    makeSquare 44100 440.0 |> SeqProvider  |> output.Init
+    pluck 44100 440.0 |> SeqProvider  |> output.Init
     output.Play ()
     Thread.Sleep 2000
     output.Stop ()

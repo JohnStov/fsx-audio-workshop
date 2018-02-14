@@ -161,13 +161,19 @@ Let's reimplement...
 
 ' snippet aud3
 
+Note the use of an _Active Pattern_ in the output function
+
+`makeNoise` uses a recursive  _seq compehension_ to generate an infinite lazy sequence of random values
+
+' snippet aud3a
+
+We can use `take` to create a finite sequence from our infinite sequence
+
 ***
 
-## More complex signals
+## More complex signals -  Sinewave
 
----
-
-### Sinewave
+' snippet aud4
 
 We need to introduce _frequency_ (f) - how often the waveform repeats per second
 
@@ -211,9 +217,18 @@ We can create a new function to generate squarewaves by substituting our square 
 
 ### Refactoring to higher order functions
 
+' snippet aud4a
+
 We can refactor the code duplication to a higher-order function that takes our generator function as an argument
 
 If we make the generator function the first argument we can use partial application to generate a family of sound generator functions
 
+***
 
+## Other sound generating algorithms - Karplus-Strong
 
+<https://en.wikipedia.org/wiki/Karplus%E2%80%93Strong_string_synthesis>
+
+Developed in the early 1980s. This is a simple algorithm to generate plucked or hammered instrument sounds
+
+' snippet aud5
