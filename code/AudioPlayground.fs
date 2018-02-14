@@ -51,18 +51,22 @@ let makeNoise1Sec =
 
 let TWOPI = 2.0 * Math.PI
 
-let makeSine sampleRate frequency = 
+let generate fn sampleRate frequency = 
     let delta = TWOPI * frequency / float sampleRate
-    let gen theta = Some (Math.Sin theta, (theta + delta) % TWOPI)
+    let gen theta = Some (fn theta, (theta + delta) % TWOPI)
     Seq.unfold gen 0.0
+
+let makeSine = generate Math.Sin
 
 let square theta = 
     if theta < Math.PI then -1.0 else 1.0
 
-let makeSquare sampleRate frequency = 
-    let delta = TWOPI * frequency / float sampleRate
-    let gen theta = Some (square theta, (theta + delta) % TWOPI)
-    Seq.unfold gen 0.0
+let makeSquare = generate square
+
+let sawtooth theta = 
+    (theta / Math.PI) - 1.0
+
+let makeSawtooth = generate sawtooth
  
 [<EntryPoint>]
 let main _ =
