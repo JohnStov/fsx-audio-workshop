@@ -160,3 +160,25 @@ I don't want to have to define my entire sound before I play it
 Let's reimplement...
 
 ' snippet aud3
+
+***
+
+## More complex signals
+
+### Sinewave
+
+We need to introduce _frequency_ (f) - how often the waveform repeats per second
+
+To generate a repeating waveform we also need _phase_ - conventionally measured as an angle between 0 to Two PI radians
+
+Phase revolves every 1/f seconds
+
+The change in phase from one sample to the next we will call _delta_
+
+The current _phase angle_ will be called _theta_
+
+The amplitude is calculated as _sin theta_
+
+___
+
+## Higher order functions
