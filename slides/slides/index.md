@@ -191,6 +191,12 @@ The amplitude is calculated as _sin theta_
 
 ## Higher order functions
 
+``` fsharp
+let makeSine sampleRate frequency =
+    let delta = TWOPI * frequency / float sampleRate
+    let gen theta = Some (Math.Sin theta, (theta + delta) % TWOPI)
+    Seq.unfold gen 0.0
+```
 In functional languages, we don't like write our own loops.
 
 The standard library provides functions that allow us to provide repeated operations. Many of these are _higher order functions_ - functions that take other functions as an argument.
@@ -219,11 +225,32 @@ We can create a new function to generate squarewaves by substituting our square 
 
 ' snippet aud4a
 
+``` fsharp
+let sampleRate = 44100
+
+let generate fn sampleRate frequency =
+    let delta = TWOPI * frequency / float sampleRate
+    let gen theta = Some (fn theta, (theta + delta) % TWOPI)
+    Seq.unfold gen 0.0
+
+let makeSine = generate Math.Sin sampleRate
+
+let makeSquare =
+    let square theta =
+        if theta < Math.PI then -1.0 else 1.0
+     generate square sampleRate
+
+let makeSawtooth =
+    let sawtooth theta =
+        (theta / Math.PI) - 1.0
+    generate sawtooth sampleRate
+```
+
 We can refactor the code duplication to a higher-order function that takes our generator function as an argument
 
 If we make the generator function the first argument we can use partial application to generate a family of sound generator functions
 
-***
+---
 
 ## Other sound generating algorithms - Karplus-Strong
 
@@ -232,3 +259,13 @@ If we make the generator function the first argument we can use partial applicat
 Developed in the early 1980s. This is a simple algorithm to generate plucked or hammered instrument sounds
 
 ' snippet aud5
+
+***
+
+## Modulation
+
+Can we produce vibrato
+
+Need to be able to change the frequency of our oscillator over time
+
+' snippet aud6

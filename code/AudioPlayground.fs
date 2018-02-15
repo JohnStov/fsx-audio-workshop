@@ -55,22 +55,44 @@ let makeNoise1Sec =
 
 let TWOPI = 2.0 * Math.PI
 
+let sampleRate = 44100
+
+type StreamOrConstant =
+    | Stream of AudioSample
+    | Constant of float
+
+let nextValue input =
+    match input with 
+    | Stream strm -> Seq.head strm
+    | Constant value -> value
+
 let generate fn sampleRate frequency = 
-    let delta = TWOPI * frequency / float sampleRate
-    let gen theta = Some (fn theta, (theta + delta) % TWOPI)
+    let gen theta = 
+        let delta = TWOPI * (frequency |> nextValue) / float sampleRate
+        Some (fn theta, (theta + delta) % TWOPI)
     Seq.unfold gen 0.0
 
-let makeSine = generate Math.Sin
+let constant value =
+    Seq.unfold (fun _ -> Some (value, ())) ()
 
-let square theta = 
-    if theta < Math.PI then -1.0 else 1.0
+let zipMap fn seq1 seq2 = 
+    Seq.zip seq1 seq2 |> Seq.map (fun (a, b) -> fn a b)
 
-let makeSquare = generate square
+let sum : float seq -> float seq -> float seq =
+    zipMap (+)
 
-let sawtooth theta = 
-    (theta / Math.PI) - 1.0
+let gain : float seq -> float seq -> float seq =
+    zipMap (*)
 
-let makeSawtooth = generate sawtooth
+let makeSine = generate Math.Sin sampleRate
+
+let makeSquare = 
+    let square theta = if theta < Math.PI then -1.0 else 1.0
+    generate square sampleRate
+
+let makeSawtooth = 
+    let sawtooth theta = (theta / Math.PI) - 1.0
+    generate sawtooth sampleRate
 
 let pluck sampleRate frequency =
     // frequency is determined by the length of the buffer
@@ -89,7 +111,8 @@ let pluck sampleRate frequency =
 [<EntryPoint>]
 let main _ =
     let output = new WasapiOut(AudioClientShareMode.Shared, 1)
-    pluck 44100 440.0 |> SeqProvider  |> output.Init
+    let sine = makeSine (Constant 440.0)
+    sine |> SeqProvider  |> output.Init
     output.Play ()
     Thread.Sleep 2000
     output.Stop ()
