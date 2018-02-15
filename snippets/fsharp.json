@@ -135,15 +135,9 @@
 			"                // update position",
 			"                writeIndex <- writeIndex + bytes.Length",
 			"",
-			"                let (|HasMore|_|) (enumerator : Collections.Generic.IEnumerator<float>) =",
-			"                    if enumerator.MoveNext() then Some enumerator.Current else None",
-			"",
 			"                let nSamples = count / bytesPerSample",
 			"                for _ in [1 .. nSamples] do",
-			"                    let sample = ",
-			"                        match enumerator with",
-			"                        | HasMore value -> value",
-			"                        | _ -> 0.0",
+			"                    let sample = if enumerator.MoveNext() then enumerator.Current else 0.0",
 			"                    putSample sample buffer",
 			"                // return the number of bytes written",
 			"                nSamples * bytesPerSample",
@@ -231,5 +225,35 @@
 			"Seq.unfold gen (bufferLength - 1)"
 		],
 		"description": "The Karplus-Strong algorithm"
+	},
+	"Variable Frequency Control": {
+		"prefix": "aud6",
+		"body": [
+			"let generate fn sampleRate (frequency : AudioStream) = ",
+			"    let enumerator = frequency.GetEnumerator()",
+			"    let gen theta = ",
+			"        let f = if enumerator.MoveNext() then enumerator.Current else 0.0",
+			"        let delta = TWOPI * f / float sampleRate",
+			"        Some (fn theta, (theta + delta) % TWOPI)",
+			"    Seq.unfold gen 0.0",
+			"",
+			"let Constant value =",
+			"    Seq.unfold (fun _ -> Some(value, ())) ()",
+			"",
+			"let sin440 = makeSine (Constant 440.0)"
+		],
+		"description": "Variable frequency input"
+	},
+	"Vibrato": {
+		"prefix": "aud6a",
+		"body": [
+			"let vibrato =",
+			"    let sin = makeSine (Constant 3.0)",
+			"    sin |> Seq.map (fun x -> (x * 20.0) + 440.0)",
+			"",
+			"let wobblySine =",
+			"    vibrato |> makeSine"
+		],
+		"description": "Apply vibrato at 3 Hz"
 	}
 }

@@ -266,6 +266,36 @@ Developed in the early 1980s. This is a simple algorithm to generate plucked or 
 
 Can we produce vibrato
 
-Need to be able to change the frequency of our oscillator over time
+Need to be able to change the frequency of our oscillator over time. The obviosu way to do this is to make the frequency parameter a stream.
+
+```fsharp
+let generate fn sampleRate (frequency : AudioStream) = 
+    let enumerator = frequency.GetEnumerator()
+    let gen theta =
+        let f = if enumerator.MoveNext() then enumerator.Current else 0.0
+        let delta = TWOPI * f / float sampleRate
+        Some (fn theta, (theta + delta) % TWOPI)
+    Seq.unfold gen 0.0
+
+let Constant value =
+    Seq.unfold (fun _ -> Some(value, ())) ()
+
+let sin440 = makeSine (Constant 440.0)
+```
 
 ' snippet aud6
+
+---
+
+## Vibrato
+
+We need a stream that varies between 420.0 - 460.0, at 3 Hz
+
+``` fsharp
+let vibrato =
+    let sin = makeSine (Constant 3.0)
+    sin |> Seq.map (fun x -> (x * 20.0) + 440.0)
+
+let wobblySine =
+    vibrato |> makeSine
+```
