@@ -48,9 +48,17 @@ let Constant value =
     Seq.unfold (fun _ -> Some (value, ())) ()
 let makeSine : AudioStream -> AudioStream = generate Math.Sin sampleRate
 
+let zipMap fn seq1 seq2 =
+    Seq.zip seq1 seq2 |> Seq.map (fun (x, y) -> fn x y)
+
+let gain = 
+    zipMap (*)
+    
+let offset = 
+    zipMap (+)
+
 let vibrato =
-    let sin = makeSine (Constant 3.0)
-    sin |> Seq.map (fun x -> (x * 20.0) + 440.0)
+     makeSine (Constant 3.0) |> gain (Constant 20.0) |> offset (Constant 440.0)
 
 let wobblySine =
     vibrato |> makeSine

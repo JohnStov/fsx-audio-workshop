@@ -299,3 +299,33 @@ let vibrato =
 let wobblySine =
     vibrato |> makeSine
 ```
+
+---
+
+## A bit of refactoring
+
+``` fsharp
+let gain seq1 seq2 =
+    Seq.zip seq1 seq2 |> Seq.map (fun (a, b) -> a * b)
+
+let offset seq1 seq2 =
+    Seq.zip seq1 seq2 |> Seq.map (fun (a, b) -> a + b)
+
+let vibrato =
+     makeSine (Constant 3.0) |> gain (Constant 20.0) |> offset (Constant 440.0)
+```
+
+---
+
+### more refactoring
+
+``` fsharp
+let zipMap fn seq1 seq2 =
+    Seq.zip seq1 seq2 |> Seq.map (fun (x, y) -> fn x y)
+
+let gain =
+    zipMap (*)
+
+let offset =
+    zipMap (+)
+```
