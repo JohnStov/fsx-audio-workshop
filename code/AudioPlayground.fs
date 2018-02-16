@@ -3,7 +3,7 @@ module AudioPlayground
 open NAudio.Wave
 open System
 open NAudio.CoreAudioApi
-open System.Threading
+open NAudio.Midi
 
 type AudioStream = float seq
 
@@ -13,7 +13,6 @@ type StreamProvider (waveform: AudioStream) =
     let bytesPerSample = waveFormat.BitsPerSample / 8
     let enumerator = waveform.GetEnumerator()
    
-
     interface IWaveProvider with
         member __.WaveFormat with get() = waveFormat
 
@@ -62,12 +61,61 @@ let vibrato =
 
 let wobblySine =
     vibrato |> makeSine
- 
+
+let waitForKeyPress () = 
+    let mutable goOn = true
+    while goOn do
+        let key = Console.ReadKey(true)
+        if key.KeyChar = ' ' 
+        then 
+            goOn <- false
+
+let getInDevice () = 
+    let deviceRange = [0.. MidiIn.NumberOfDevices-1]
+    match deviceRange |> List.tryFind (fun n -> MidiIn.DeviceInfo(n).ProductName = "MPKmini2") with
+    | Some id -> 
+        printfn "Play some music"
+        Some (new MidiIn(id))
+    | None -> 
+        printfn "You forgot to plug in the keyboard"
+        None
+
+let noteStream (evt : IObservable<MidiInMessageEventArgs>) = 
+    let mutable note = 0
+    let noteNumberToFrequency noteNumber =
+        match noteNumber with
+        | 0 -> 0.0
+        | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
+
+    evt.Add(fun msg -> 
+        note <- match msg.MidiEvent with
+                | :? NoteOnEvent as noteOn -> 
+                    if note = noteOn.NoteNumber && noteOn.Velocity = 0 
+                    then 0 
+                    else noteOn.NoteNumber
+                | :? NoteEvent as noteOff -> 
+                    if note = noteOff.NoteNumber 
+                    then 0 
+                    else note
+                | _ -> note
+        )
+
+    Seq.unfold (fun _ -> Some(noteNumberToFrequency note, ())) ()
+
+let runWith (input : MidiIn) (output : IWavePlayer) =
+    input.MessageReceived |> noteStream |> makeSine |> StreamProvider |> output.Init
+    output.Play ()
+    input.Start ()
+    
+    waitForKeyPress ()
+
+    output.Stop ()
+    input.Stop ()
+
 [<EntryPoint>]
 let main _ =
-    let output = new WasapiOut(AudioClientShareMode.Shared, 1)
-    wobblySine |> StreamProvider |> output.Init
-    output.Play ()
-    Thread.Sleep 2000
-    output.Stop ()
-    0
+    match getInDevice () with
+    | None -> -1
+    | Some input -> 
+        runWith input (new WasapiOut(AudioClientShareMode.Shared, 1))
+        0
