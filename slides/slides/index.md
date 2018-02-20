@@ -329,3 +329,6 @@ let gain =
 let offset =
     zipMap (+)
 ```
+
+***
+

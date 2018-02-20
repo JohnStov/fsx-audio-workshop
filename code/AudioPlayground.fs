@@ -56,11 +56,11 @@ let gain =
 let offset = 
     zipMap (+)
 
-let vibrato =
-     makeSine (Constant 3.0) |> gain (Constant 20.0) |> offset (Constant 440.0)
+let vibrato vib modu freq =
+     makeSine modu |> gain vib |> offset freq
 
-let wobblySine =
-    vibrato |> makeSine
+let wobblySine vib modu freq =
+    vibrato vib modu freq |> makeSine
 
 let waitForKeyPress () = 
     let mutable goOn = true
@@ -102,8 +102,22 @@ let noteStream (evt : IObservable<MidiInMessageEventArgs>) =
 
     Seq.unfold (fun _ -> Some(noteNumberToFrequency note, ())) ()
 
+let controlStream controller (evt : IObservable<MidiInMessageEventArgs>) = 
+    let mutable controlValue = 0
+
+    evt.Add(fun msg -> 
+        controlValue <- match msg.MidiEvent with
+                        | :? ControlChangeEvent as ctrl -> 
+                            if int ctrl.Controller = controller then ctrl.ControllerValue else controlValue                            
+                        | _ -> controlValue
+        )
+
+    Seq.unfold (fun _ -> Some(float controlValue, ())) ()
+
 let runWith (input : MidiIn) (output : IWavePlayer) =
-    input.MessageReceived |> noteStream |> makeSine |> StreamProvider |> output.Init
+    let vib = input.MessageReceived |> (controlStream 1)
+    let modu = input.MessageReceived |> (controlStream 2)
+    input.MessageReceived |> noteStream |> (wobblySine vib modu) |> StreamProvider |> output.Init
     output.Play ()
     input.Start ()
     
