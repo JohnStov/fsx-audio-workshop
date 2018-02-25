@@ -80,44 +80,66 @@ let getInDevice () =
         printfn "You forgot to plug in the keyboard"
         None
 
-let noteStream (evt : IObservable<MidiInMessageEventArgs>) = 
+let midiEvents (evt : IObservable<MidiInMessageEventArgs>) =
+    evt |> Observable.map (fun e -> e.MidiEvent)
+
+let noteEvents (evt : IObservable<MidiEvent>) =
+    evt |> Observable.filter (fun e -> e :? NoteEvent)
+    |> Observable.map (fun e -> e :?> NoteEvent)
+
+let controlEvents (evt : IObservable<MidiEvent>) =
+    evt |> Observable.filter (fun e -> e :? ControlChangeEvent)
+    |> Observable.map (fun e -> e :?> ControlChangeEvent)
+
+let channelFilter channel (evt : IObservable<MidiEvent>) =
+    let isSelectedChannel (e : MidiEvent) = 
+        (channel < 1 && channel > 16) || int e.Channel = channel
+    
+    evt |> Observable.filter isSelectedChannel
+
+let (|NoteOff|_|) (evt : NoteEvent) =
+    match evt.CommandCode, evt.Velocity with
+    | MidiCommandCode.NoteOff, _ -> Some evt
+    | MidiCommandCode.NoteOn, 0 -> Some evt
+    | _, _ -> None
+
+let (|NoteOn|_|) (evt : NoteEvent) =
+    match evt.CommandCode, evt.Velocity with
+    | MidiCommandCode.NoteOn, v when v > 0 -> Some evt
+    | _, _ -> None
+
+let noteStream (evt : IObservable<NoteEvent>) = 
     let mutable note = 0
     let noteNumberToFrequency noteNumber =
         match noteNumber with
         | 0 -> 0.0
         | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
 
-    evt.Add(fun msg -> 
-        note <- match msg.MidiEvent with
-                | :? NoteOnEvent as noteOn -> 
-                    if note = noteOn.NoteNumber && noteOn.Velocity = 0 
-                    then 0 
-                    else noteOn.NoteNumber
-                | :? NoteEvent as noteOff -> 
-                    if note = noteOff.NoteNumber 
-                    then 0 
-                    else note
-                | _ -> note
-        )
+    evt.Add(fun event ->
+        note <- match event with 
+                | NoteOff _ ->  0
+                | NoteOn n -> n.NoteNumber
+                | _ -> note)
 
     Seq.unfold (fun _ -> Some(noteNumberToFrequency note, ())) ()
 
-let controlStream controller (evt : IObservable<MidiInMessageEventArgs>) = 
+let controlStream controller (evt : IObservable<ControlChangeEvent>) = 
     let mutable controlValue = 0
 
-    evt.Add(fun msg -> 
-        controlValue <- match msg.MidiEvent with
-                        | :? ControlChangeEvent as ctrl -> 
-                            if int ctrl.Controller = controller then ctrl.ControllerValue else controlValue                            
-                        | _ -> controlValue
-        )
-
+    evt.Add(fun msg ->
+                if int msg.Controller = controller
+                then controlValue <- msg.ControllerValue)
+    
     Seq.unfold (fun _ -> Some(float controlValue, ())) ()
 
 let runWith (input : MidiIn) (output : IWavePlayer) =
-    let vib = input.MessageReceived |> (controlStream 1)
-    let modu = input.MessageReceived |> (controlStream 2)
-    input.MessageReceived |> noteStream |> (wobblySine vib modu) |> StreamProvider |> output.Init
+    let events = input.MessageReceived |> midiEvents |> channelFilter 1
+    let control = events |> controlEvents
+    let vibrato = control |> controlStream 1
+    let modulation = control |> controlStream 2
+    let notes = events |> noteEvents
+    notes |> noteStream |> wobblySine vibrato modulation |> StreamProvider |> output.Init
+
     output.Play ()
     input.Start ()
     

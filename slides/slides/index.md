@@ -1,3 +1,5 @@
+
+
 *** 
 
 # FSharp Audio Workshop
@@ -317,7 +319,7 @@ let vibrato =
 
 ---
 
-### more refactoring
+### More refactoring
 
 ``` fsharp
 let zipMap fn seq1 seq2 =
@@ -331,4 +333,61 @@ let offset =
 ```
 
 ***
+
+## MIDI
+
+MIDI (_Musical Instrument Digital Interface_) is a protocol for controlling musical interfaces, originally across a dedicated hardware bus, but now over a variety of transports.
+
+My keyboard transmits MIDI over USB.
+
+NAudio has a MIDI support.
+
+---
+
+## MIDI Notes
+
+Part of the MIDI protocol covers musical notes. By default it assumes the standard _equal-tempered_ scale. 
+
+Each semitone is mapped onto a _note number_ in the range 0-127. _Middle C_ is 60. Concert A (440 Hz) is 69.
+
+Each note message also has a _velocity_ part (how hard the key is hit). Lifting a key either sends a Note Off message, or another Note On message with a velocity of 0.
+
+---
+
+## MIDI Controls
+
+MIDI supports 127 control devices. Each control can send control change events with a value in the range 0-127.
+
+***
+
+## Reactive Programming
+
+' Who here knows about Rx?
+
+' Who has used it?
+
+One of the great features of FSharp is that events also implement IObservable. This means that you have the power of Rx available automatically.
+
+Rx gives you the power to compose events in the same way that IEnumerable allows you to compose sequences.
+
+---
+
+`IObservable<T>` is the semantic inverse of `IEnumerable<T>`
+
+`IObservable<T>.Subscribe()` <-> `IEnumerable<T>.GetEnumerator()`
+
+`IObserver` is the semantic inverse of `IEnumerator`
+
+`IObserver.OnNext(T)` <-> `IEnumerator.MoveNext()`
+
+`IObserver.OnError(Exception)` <-> `IEnumerator.MoveNext()` throws
+
+`IObserver.OnEnded()` <-> `IEnumerator.MoveNext()` returns `false`
+***
+
+## Let's get Reactive
+
+Let's try to make this sound generator playable by responding to user input.
+
+---
 
