@@ -50,18 +50,6 @@ let makeSine : AudioStream -> AudioStream = generate Math.Sin sampleRate
 let zipMap fn seq1 seq2 =
     Seq.zip seq1 seq2 |> Seq.map (fun (x, y) -> fn x y)
 
-let gain = 
-    zipMap (*)
-    
-let offset = 
-    zipMap (+)
-
-let vibrato vib modu freq =
-     makeSine modu |> gain vib |> offset freq
-
-let wobblySine vib modu freq =
-    vibrato vib modu freq |> makeSine
-
 let waitForKeyPress () = 
     let mutable goOn = true
     while goOn do
@@ -108,12 +96,13 @@ let (|NoteOn|_|) (evt : NoteEvent) =
     | MidiCommandCode.NoteOn, v when v > 0 -> Some evt
     | _, _ -> None
 
+let noteNumberToFrequency noteNumber =
+    match noteNumber with
+    | 0 -> 0.0
+    | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
+
 let noteStream (evt : IObservable<NoteEvent>) = 
     let mutable note = 0
-    let noteNumberToFrequency noteNumber =
-        match noteNumber with
-        | 0 -> 0.0
-        | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
 
     evt.Add(fun event ->
         note <- match event with 
@@ -132,13 +121,51 @@ let controlStream controller (evt : IObservable<ControlChangeEvent>) =
     
     Seq.unfold (fun _ -> Some(float controlValue, ())) ()
 
+let makeNoise =
+    let random = Random()
+    let rescale value = (value * 2.0) - 1.0
+    let rec noise () = 
+        seq { 
+            yield random.NextDouble() |> rescale
+            yield! noise () 
+        }
+    noise ()
+
+let pluck sampleRate frequency =
+    // frequency is determined by the length of the buffer
+    let bufferLength = sampleRate / int frequency
+    // start with noise
+    let buffer = makeNoise |> Seq.take bufferLength |> Seq.toArray
+    // go round the buffer repeatedly, playing each sample, 
+    // then averaging with previous and decaying
+    let gen index =
+        let nextIndex = (index + 1) % bufferLength
+        let value = buffer.[nextIndex]
+        buffer.[nextIndex] <- (value + buffer.[index]) / 2.0 * 0.996
+        Some(value, nextIndex)
+    Seq.unfold gen (bufferLength - 1)
+ 
+
+let merge (strm : AudioStream) (evt: IObservable<AudioStream>) =
+    let mutable enumerator = strm.GetEnumerator()
+    let nextValue () = if enumerator.MoveNext() then enumerator.Current else 0.0
+ 
+    evt.Add (fun msg -> enumerator <- msg.GetEnumerator())
+
+    Seq.unfold (fun _ -> Some(nextValue (), ()) ) ()
+
+let trigger (generator: float -> AudioStream) (trig: IObservable<NoteEvent>) : AudioStream=
+    let noteOns = trig |> Observable.filter (fun evt -> evt :? NoteOnEvent && evt.Velocity > 0)
+    let freqs = noteOns |> Observable.map (fun evt -> noteNumberToFrequency evt.NoteNumber)
+    let plucks = freqs |> Observable.map generator
+    
+    let initial = Constant (0.0)
+    merge initial plucks
+
 let runWith (input : MidiIn) (output : IWavePlayer) =
     let events = input.MessageReceived |> midiEvents |> channelFilter 1
-    let control = events |> controlEvents
-    let vibrato = control |> controlStream 1
-    let modulation = control |> controlStream 2
     let notes = events |> noteEvents
-    notes |> noteStream |> wobblySine vibrato modulation |> StreamProvider |> output.Init
+    notes |> trigger (pluck sampleRate) |> StreamProvider |> output.Init
 
     output.Play ()
     input.Start ()
