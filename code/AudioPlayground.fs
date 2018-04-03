@@ -96,13 +96,12 @@ let (|NoteOn|_|) (evt : NoteEvent) =
     | MidiCommandCode.NoteOn, v when v > 0 -> Some evt
     | _, _ -> None
 
-let noteNumberToFrequency noteNumber =
-    match noteNumber with
-    | 0 -> 0.0
-    | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
-
 let noteStream (evt : IObservable<NoteEvent>) = 
     let mutable note = 0
+    let noteNumberToFrequency noteNumber =
+        match noteNumber with
+        | 0 -> 0.0
+        | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
 
     evt.Add(fun event ->
         note <- match event with 

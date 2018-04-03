@@ -255,5 +255,40 @@
 			"    vibrato |> makeSine"
 		],
 		"description": "Apply vibrato at 3 Hz"
+	},
+	"Audio input": {
+		"prefix": "aud7",
+		"body": [
+			"let getInDevice () = ",
+			"    let deviceRange = [0..MidiIn.NumberOfDevices-1]",
+			"    match deviceRange |> List.tryFind (fun n -> MidiIn.DeviceInfo(n).ProductName = \"MPKmini2\") with",
+			"    | Some id -> ",
+			"      printfn \"Play some music\"",
+			"      Some (new MidiIn(id))",
+			"    | None -> ",
+			"      printfn \"You forgot to plug in the keyboard\"",
+			"      None"
+		],
+		"description": "Audio input selector"
+	},
+	"Note event to frequency": {
+		"prefix": "aud8",
+		"body": [
+			"let noteStream (evt : IObservable<NoteEvent>) = ",
+			"    let mutable note = 0",
+			"    let noteNumberToFrequency noteNumber =",
+			"        match noteNumber with",
+			"        | 0 -> 0.0",
+			"        | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0",
+			"",
+			"    evt.Add(fun event ->",
+			"        note <- match event with ",
+			"                | NoteOff _ ->  0",
+			"                | NoteOn n -> n.NoteNumber",
+			"                | _ -> note)",
+			"",
+			"    Seq.unfold (fun _ -> Some(noteNumberToFrequency note, ())) ()"
+		],
+		"description": "Note event to frequency stream"
 	}
 }

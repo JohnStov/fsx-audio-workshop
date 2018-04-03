@@ -3,6 +3,7 @@ source https://nuget.org/api/v2
 storage:none
 
 nuget Fable.Elmish.HMR
+nuget fable.import.webmidi
 nuget FSharp.Core
 nuget Fable.Core
 nuget Fable.Elmish.React

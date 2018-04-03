@@ -1,4 +1,8 @@
-
+- title : FSharp Audio Workshop
+- description : An introduction to digital audio with FSharp
+- author : John Stovin
+- theme : moon
+- transition : convex
 
 *** 
 
@@ -6,11 +10,11 @@
 
 ### John Stovin
 
-![twitter](images/Twitter.png)@johnstovin
+![twitter](images/Twitter.png)
 
-### FSharp Exchange London
+@johnstovin
 
-### 4-5 April 2018
+### FSharp Exchange / London / 5 April 2018
 
 ' Gauge the audience:
 ' * F# experience level?
@@ -43,8 +47,8 @@ Microphone:
 
 ![Waveform](images/waveform.png)]
 
-y-axis - voltage (around 0)
-x -axis - time
+* y-axis - voltage (around 0)
+* x-axis - time
 
 ---
 
@@ -137,7 +141,7 @@ We'll use **NAudio**: <https://github.com/naudio/NAudio>
 
 ## Generalising
 
-Let's change this to provide an arbitrary set of samples and have the system play them?
+Let's change this to provide an arbitrary set of samples and have the system play them
 
 ' snippet aud2 - replace everything
 
@@ -268,7 +272,7 @@ Developed in the early 1980s. This is a simple algorithm to generate plucked or 
 
 Can we produce vibrato
 
-Need to be able to change the frequency of our oscillator over time. The obviosu way to do this is to make the frequency parameter a stream.
+Need to be able to change the frequency of our oscillator over time. The obvious way to do this is to make the frequency parameter a stream.
 
 ```fsharp
 let generate fn sampleRate (frequency : AudioStream) = 
@@ -334,6 +338,18 @@ let offset =
 
 ***
 
+## Input
+
+First thought - use the computer keyboard
+
+Unfortunately console applications only support 'key press' events
+
+We can't distinguish between 'key down' and 'key up' events
+
+So we have to use MIDI
+
+---
+
 ## MIDI
 
 MIDI (_Musical Instrument Digital Interface_) is a protocol for controlling musical interfaces, originally across a dedicated hardware bus, but now over a variety of transports.
@@ -344,19 +360,39 @@ NAudio has a MIDI support.
 
 ---
 
-## MIDI Notes
+We need an input library: `NAudio` again
 
-Part of the MIDI protocol covers musical notes. By default it assumes the standard _equal-tempered_ scale. 
+``` fsharp
+let getInDevice () = 
+    let deviceRange = [0.. MidiIn.NumberOfDevices-1]
+    match deviceRange |> List.tryFind (fun n -> MidiIn.DeviceInfo(n).ProductName = "MPKmini2") with
+    | Some id -> 
+        printfn "Play some music"
+        Some (new MidiIn(id))
+    | None -> 
+        printfn "You forgot to plug in the keyboard"
+        None
+```
 
-Each semitone is mapped onto a _note number_ in the range 0-127. _Middle C_ is 60. Concert A (440 Hz) is 69.
-
-Each note message also has a _velocity_ part (how hard the key is hit). Lifting a key either sends a Note Off message, or another Note On message with a velocity of 0.
+' snippet aud7
 
 ---
 
-## MIDI Controls
+We also need to change our program to run continuously:
 
-MIDI supports 127 control devices. Each control can send control change events with a value in the range 0-127.
+to make life easier we will terminate on a key press
+
+``` fsharp
+let waitForKeyPress () = 
+    let mutable goOn = true
+    while goOn do
+        let key = Console.ReadKey(true)
+        if key.KeyChar = ' ' 
+        then 
+            goOn <- false
+```
+
+' snippet aud8
 
 ***
 
@@ -372,17 +408,18 @@ Rx gives you the power to compose events in the same way that IEnumerable allows
 
 ---
 
-`IObservable<T>` is the semantic inverse of `IEnumerable<T>`
+`IObservable<T>` is the semantic dual of `IEnumerable<T>`
 
 `IObservable<T>.Subscribe()` <-> `IEnumerable<T>.GetEnumerator()`
 
-`IObserver` is the semantic inverse of `IEnumerator`
+`IObserver` is the semantic dual of `IEnumerator`
 
 `IObserver.OnNext(T)` <-> `IEnumerator.MoveNext()`
 
 `IObserver.OnError(Exception)` <-> `IEnumerator.MoveNext()` throws
 
 `IObserver.OnEnded()` <-> `IEnumerator.MoveNext()` returns `false`
+
 ***
 
 ## Let's get Reactive
@@ -390,4 +427,196 @@ Rx gives you the power to compose events in the same way that IEnumerable allows
 Let's try to make this sound generator playable by responding to user input.
 
 ---
+
+## MIDI Notes
+
+Part of the MIDI protocol covers musical notes. By default it assumes the standard _equal-tempered_ scale. 
+
+Each semitone is mapped onto a _note number_ in the range 0-127. _Middle C_ is 60. Concert A (440 Hz) is 69.
+
+Each note message also has a _velocity_ part (how hard the key is hit). Lifting a key either sends a Note Off message, or another Note On message with a velocity of 0.
+
+---
+
+## Calculating frequency from note number
+
+Standard Concert A is 440 Hz
+
+This is note number 69.
+
+Pitch is an exponential scale - frequency double every octave
+
+There are 12 equally spaced semitone in an octave.
+
+moving from one semitone to the next increases the frequency by the 12th root of 2 : `2 ^ (1 / 12)`
+
+``` fsharp
+    let noteNumberToFrequency noteNumber =
+        match noteNumber with
+        | 0 -> 0.0
+        | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
+```
+
+---
+
+## Transforming events
+
+The `MidiIn` object exposes an event called `MessageReceived`. It has the type `MidiInMessageEventArgs`.
+
+We would like to use something more meaningful.
+
+First filter to a MidiEvent:
+
+``` fsharp
+let midiEvents (evt : IObservable<MidiInMessageEventArgs>) =
+    evt |> Observable.map (fun e -> e.MidiEvent)
+```
+
+Then ignore any events that aren't note events:
+
+``` fsharp
+let noteEvents (evt : IObservable<MidiEvent>) =
+    evt |> Observable.filter (fun e -> e :? NoteEvent)
+    |> Observable.map (fun e -> e :?> NoteEvent)
+```
+
+`Observable` allows us to treat events just like sequences.
+
+---
+
+## Handling note off
+
+Recall that Note Off messages can take 2 forms - either a true Note Off, or a Note On with a velocity of 0.
+
+This is an ideal candidate for _Active Patterns_:
+
+``` fsharp
+let (|NoteOff|_|) (evt : NoteEvent) =
+    match evt.CommandCode, evt.Velocity with
+    | MidiCommandCode.NoteOff, _ -> Some evt
+    | MidiCommandCode.NoteOn, 0 -> Some evt
+    | _, _ -> None
+
+let (|NoteOn|_|) (evt : NoteEvent) =
+    match evt.CommandCode, evt.Velocity with
+    | MidiCommandCode.NoteOn, v when v > 0 -> Some evt
+    | _, _ -> None
+```
+
+---
+
+' snippet aud8
+
+Lets transform our sequence of discrete note events into a continuous stream of frequency values:
+
+``` fsharp
+let noteStream (evt : IObservable<NoteEvent>) =
+    let mutable note = 0
+
+    evt.Add(fun event ->
+        note <- match event with 
+                | NoteOff _ ->  0
+                | NoteOn n -> n.NoteNumber
+                | _ -> note)
+
+    Seq.unfold (fun _ -> Some(noteNumberToFrequency note, ())) ()
+```
+
+---
+
+Putting it all together
+
+``` fsharp
+let runWith (input : MidiIn) (output : IWavePlayer) =
+    input.MessageReceived |> noteStream |> makeSine |> StreamProvider |> output.Init
+    output.Play ()
+    input.Start ()
+
+    waitForKeyPress ()
+
+    output.Stop ()
+    input.Stop ()
+
+[<EntryPoint>]
+let main _ =
+    match getInDevice () with
+    | None -> -1
+    | Some input -> 
+        runWith input (new WasapiOut(AudioClientShareMode.Shared, 1))
+        0
+```
+
+***
+
+## Adding some interest
+
+Can we dynamically modulate our sound as we play?
+
+Yes - because we have _MIDI Controls_
+
+---
+
+## MIDI Controls
+
+MIDI supports 127 control devices. 
+
+Each control can send control change events with a value in the range 0-127.
+
+We can map those control change values onto out vibrato frequency and depth.
+
+---
+
+First we need to refactor `wobblySine` to take some parameters
+
+``` fsharp
+let vibrato depth modulation freq =
+    makeSine modulation |> gain depth |> offset freq
+
+let wobblySine depth modulation freq =
+    vibrato depth modulation freq |> makeSine
+```
+
+Don't forget: these functions are working with _streams_, not indiviual values
+
+---
+
+Lets create a function filter the MIDI control events by controller id
+
+``` fsharp
+let controlStream controller (evt : IObservable<MidiInMessageEventArgs>) = 
+    let mutable controlValue = 0
+
+    evt.Add(fun msg -> 
+        controlValue <- match msg.MidiEvent with
+                        | :? ControlChangeEvent as ctrl -> 
+                            if int ctrl.Controller = controller
+                            then ctrl.ControllerValue
+                            else controlValue
+                        | _ -> controlValue
+        )
+
+    Seq.unfold (fun _ -> Some(float controlValue, ())) ()
+```
+
+---
+
+And update `runWith` accordingly:
+
+``` fsharp
+let runWith (input : MidiIn) (output : IWavePlayer) =
+    let depth = input.MessageReceived |> (controlStream 1)
+    let modulation = input.MessageReceived |> (controlStream 2)
+    input.MessageReceived |> noteStream |> (wobblySine depth modulation) |> StreamProvider |> output.Init
+    output.Play ()
+    input.Start ()
+
+    waitForKeyPress ()
+
+    output.Stop ()
+    input.Stop ()
+```
+
+***
+
+
 
