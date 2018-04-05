@@ -20,6 +20,14 @@
 ' * F# experience level?
 ' * Digital audio knowledge?
 
+---
+
+This is a workshop with 2 halves:
+
+1. Generating sounds
+2. Responding to asynchronous inputs
+
+
 ***
 
 ## What is sound?
@@ -29,6 +37,8 @@ Regular back & forth displacement of air molecules
 -> Moves your eardrum
 
 -> Stimulates aural nerves
+
+-> _Something_ happens in your brain
 
 -> Perception of _sound_
 
@@ -65,7 +75,7 @@ Microphone:
 
 ## Example waveforms
 
-![Waveforms](images/waveforms.png)]
+![Waveforms](images/waveforms.png)
 
 ' Note that sine wave sounds 'purer' that the other waveforms - will explore this later
 
@@ -188,7 +198,7 @@ To generate a repeating waveform we also need _phase_
 
 ## Phase
 
-An angle in the range 0 .. 2 * PI _radians_
+An angle in the range 0 .. 2π _radians_
 
 ' Math library uses radians, so we do too
 
@@ -205,6 +215,8 @@ The amplitude is calculated as _sin theta_
 ## Higher order functions
 
 ``` fsharp
+let TWOPI = 2.0 * Math.PI
+
 let makeSine sampleRate frequency =
     let delta = TWOPI * frequency / float sampleRate
     let gen theta = Some (Math.Sin theta, (theta + delta) % TWOPI)
@@ -229,7 +241,7 @@ If it returns `Some ('T * 'State)`, the `'T` value is appended to the sequence, 
 
 We can create a function to generate a square wave.
 
-If theta < PI, the value is -1.0, otherwise it is +1.0
+If theta < π, the value is -1.0, otherwise it is +1.0
 
 We can create a new function to generate squarewaves by substituting our square function for Math.Sin
 
@@ -266,9 +278,7 @@ If we make the generator function the first argument we can use partial applicat
 
 ---
 
-## Other sound generating algorithms - Karplus-Strong
-
-<https://en.wikipedia.org/wiki/Karplus%E2%80%93Strong_string_synthesis>
+## Karplus-Strong
 
 Developed in the early 1980s. This is a simple algorithm to generate plucked or hammered instrument sounds
 
@@ -295,7 +305,7 @@ let pluck sampleRate frequency =
 
 ## Modulation
 
-Can we produce vibrato
+Can we produce vibrato?
 
 Need to be able to change the frequency of our oscillator over time. The obvious way to do this is to make the frequency parameter a stream.
 
@@ -752,6 +762,8 @@ We can extend this in lots of ways:
 - Threading support to use the full power of modern CPUs.
 
 - A pluggable connection mechanism to allow dynamic reconfiguration.
+
+- Use Fable, WebMidi & WebAudio to move all this code to the browser
 
 ***
 
