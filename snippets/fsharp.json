@@ -256,6 +256,34 @@
 		],
 		"description": "Apply vibrato at 3 Hz"
 	},
+	"Refactor1": {
+		"prefix": "aud6b",
+		"body": [
+			"let gain seq1 seq2 =",
+			"    Seq.zip seq1 seq2 |> Seq.map (fun (a, b) -> a * b)",
+			"",
+			"let offset seq1 seq2 =",
+			"    Seq.zip seq1 seq2 |> Seq.map (fun (a, b) -> a + b)",
+			"", 
+			"let vibrato =",
+			"    makeSine (Constant 3.0) |> gain (Constant 20.0) |> offset (Constant 440.0)"
+				],
+		"description": "Some refactoring"
+	},
+	"Refactor2": {
+		"prefix": "aud6c",
+		"body": [
+			"let gain seq1 seq2 =",
+			"    Seq.zip seq1 seq2 |> Seq.map (fun (a, b) -> a * b)",
+			"",
+			"let offset seq1 seq2 =",
+			"    Seq.zip seq1 seq2 |> Seq.map (fun (a, b) -> a + b)",
+			"", 
+			"let vibrato =",
+			"    makeSine (Constant 3.0) |> gain (Constant 20.0) |> offset (Constant 440.0)"
+				],
+		"description": "Some more refactoring"
+	},
 	"Audio input": {
 		"prefix": "aud7",
 		"body": [
@@ -271,24 +299,179 @@
 		],
 		"description": "Audio input selector"
 	},
-	"Note event to frequency": {
+	"Note number to frequency": {
 		"prefix": "aud8",
 		"body": [
-			"let noteStream (evt : IObservable<NoteEvent>) = ",
-			"    let mutable note = 0",
-			"    let noteNumberToFrequency noteNumber =",
-			"        match noteNumber with",
-			"        | 0 -> 0.0",
-			"        | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0",
-			"",
-			"    evt.Add(fun event ->",
-			"        note <- match event with ",
-			"                | NoteOff _ ->  0",
-			"                | NoteOn n -> n.NoteNumber",
-			"                | _ -> note)",
-			"",
-			"    Seq.unfold (fun _ -> Some(noteNumberToFrequency note, ())) ()"
+			"let noteNumberToFrequency noteNumber =",
+			"    match noteNumber with",
+			"    | 0 -> 0.0",
+			"    | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0"
 		],
-		"description": "Note event to frequency stream"
+		"description": "Convert a note number to a frequency"
+	},
+	"MessageEventsToMidiEvents": {
+		"prefix": "aud9a",
+		"body": [
+			"let midiEvents (evt : IObservable<MidiInMessageEventArgs>) =",
+			"    evt |> Observable.map (fun e -> e.MidiEvent)"
+				],
+		"description": "Convert Message events to note events"
+	},
+	"FilterNoteEvents": {
+		"prefix": "aud9b",
+		"body": [
+			"let noteEvents (evt : IObservable<MidiEvent>) =",
+    		"    evt |> Observable.filter (fun e -> e :? NoteEvent)",
+    		"    |> Observable.map (fun e -> e :?> NoteEvent)"
+				],
+		"description": "Convert Message events to note events"
+	},
+	"NoteOnNoteOff": {
+		"prefix": "aud10",
+		"body": [
+			"let (|NoteOff|_|) (evt : NoteEvent) =",
+			"    match evt.CommandCode, evt.Velocity with",
+			"    | MidiCommandCode.NoteOff, _ -> Some evt",
+			"    | MidiCommandCode.NoteOn, 0 -> Some evt",
+			"    | _, _ -> None",
+			"",
+			"let (|NoteOn|_|) (evt : NoteEvent) =",
+			"    match evt.CommandCode, evt.Velocity with",
+			"    | MidiCommandCode.NoteOn, v when v > 0 -> Some evt",
+			"    | _, _ -> None"
+		],
+		"description": "Detect zero velocity note ons"
+	},
+	"NoteStreamToFreqStream": {
+		"prefix": "aud11",
+		"body": [
+			"let noteStream (evt : IObservable<NoteEvent>) =",
+			"let mutable note = 0",
+			"",
+			"evt.Add(fun event ->",
+			"    note <- match event with", 
+			"            | NoteOff _ ->  0",
+			"            | NoteOn n -> n.NoteNumber",
+			"            | _ -> note)",
+			"",
+			"Seq.unfold (fun _ -> Some(noteNumberToFrequency note, ())) ()"
+		
+		],
+		"description": "Convert note events to a frequency stream"
+	},
+	"NewMain": {
+		"prefix": "aud12",
+		"body": [
+			"let runWith (input : MidiIn) (output : IWavePlayer) =",
+			"input.MessageReceived |> noteStream |> makeSine |> StreamProvider |> output.Init",
+			"",
+			"output.Play ()",
+			"input.Start ()",
+			"",
+			"waitForKeyPress ()",
+			"",
+			"output.Stop ()",
+			"input.Stop ()",
+			"",
+			"[<EntryPoint>]",
+			"let main _ =",
+			"    match getInDevice () with",
+			"    | None -> -1",
+			"    | Some input ->",
+			"        runWith input (new WasapiOut(AudioClientShareMode.Shared, 1))",
+			"        0"
+		],
+		"description":"New main with wait for key press"
+	},
+	"NewVibrato": {
+		"prefix": "aud13",
+		"body": [
+			"let vibrato depth modulation freq =",
+			"    makeSine modulation |> gain depth |> offset freq",
+			"",
+			"let wobblySine depth modulation freq =",
+			"    vibrato depth modulation freq |> makeSine"
+		],
+		"description": "Refactor vibrato to take stream input"
+	},
+	"FilterControlEvents": {
+		"prefix": "aud14",
+		"body": [
+			"let controlStream controller (evt : IObservable<MidiInMessageEventArgs>) =",
+			"    let mutable controlValue = 0",
+			"",
+    		"    evt.Add(fun msg ->",
+        	"        controlValue <- match msg.MidiEvent with",
+        	"                        | :? ControlChangeEvent as ctrl -> ",
+            "                             if int ctrl.Controller = controller",
+            "                             then ctrl.ControllerValue",
+            "                             else controlValue",
+        	"                        | _ -> controlValue",
+        	"    )",
+			"",
+    		"    Seq.unfold (fun _ -> Some(float controlValue, ())) ()"
+		],
+		"description": "Filter control events from messages"
+	},
+	"UpdateRunWith": {
+		"prefix": "aud15",
+		"body": [
+			"let runWith (input : MidiIn) (output : IWavePlayer) =",
+			"    let depth = input.MessageReceived |> (controlStream 1)",
+			"    let modulation = input.MessageReceived |> (controlStream 2)",
+			"    input.MessageReceived |> noteStream |> (wobblySine depth modulation) |> StreamProvider |> output.Init",
+			"",
+			"    output.Play ()",
+			"    input.Start ()",
+			"",
+			"    waitForKeyPress ()",
+			"",
+			"    output.Stop ()",
+			"    input.Stop ()"	
+		],
+		"description": "Update runwith for vibrato"
+	},
+	"MergeTriggeredStreams": {
+		"prefix": "aud16",
+		"body": [
+			"let merge (strm : AudioStream) (evt: IObservable<AudioStream>) =",
+			"    let mutable enumerator = strm.GetEnumerator()",
+			"    let nextValue () = if enumerator.MoveNext() then enumerator.Current else 0.0",
+			"",
+			"    evt.Add (fun msg -> enumerator <- msg.GetEnumerator())",
+			"",
+			"    Seq.unfold (fun _ -> Some(nextValue (), ()) ) ()"
+		]
+	},
+	"TriggerAudioStream": {
+		"prefix": "aud17",
+		"body": [
+			"let trigger (generator: float -> AudioStream) (trig: IObservable<NoteEvent>) : AudioStream =",
+			"    let noteOns = trig |> Observable.filter (fun evt -> evt :? NoteOnEvent && evt.Velocity > 0)",
+			"    let freqs = noteOns |> Observable.map (fun evt -> noteNumberToFrequency evt.NoteNumber)",
+			"",
+			"    let streams = freqs |> Observable.map generator",
+			"",
+			"    let initial = Constant (0.0)",
+			"    merge initial streams"
+		]
+	},
+	"FinalRunWith": {
+		"prefix": "aud18",
+		"body": [
+			"let runWith (input : MidiIn) (output : IWavePlayer) =",
+			"    let events = input.MessageReceived |> midiEvents |> channelFilter 1",
+			"    let notes = events |> noteEvents",
+			"    notes |> trigger (pluck sampleRate) |> StreamProvider |> output.Init",
+			"",
+			"    output.Play ()",
+			"    input.Start ()",
+			"",
+			"    waitForKeyPress ()",
+			"",
+			"    output.Stop ()",
+			"    input.Stop ()"	
+		],
+		"description": "Update runwith for plucks"
 	}
 }
