@@ -222,6 +222,7 @@
 			"    let value = buffer.[nextIndex]",
 			"    buffer.[nextIndex] <- (value + buffer.[index]) / 2.0 * 0.996",
 			"    Some(value, nextIndex)",
+			"",
 			"Seq.unfold gen (bufferLength - 1)"
 		],
 		"description": "The Karplus-Strong algorithm"

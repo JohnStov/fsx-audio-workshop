@@ -174,15 +174,7 @@ We can use `take` to create a finite sequence from our infinite sequence
 
 We need to introduce _frequency_ (f) - how often the waveform repeats per second
 
-To generate a repeating waveform we also need _phase_ - conventionally measured as an angle between 0 to Two PI radians
-
-Phase revolves every 1/f seconds
-
-The change in phase from one sample to the next we will call _delta_
-
-The current _phase angle_ will be called _theta_
-
-The amplitude is calculated as _sin theta_
+To generate a repeating waveform we also need _phase_
 
 ---
 
@@ -194,6 +186,22 @@ The amplitude is calculated as _sin theta_
 
 ---
 
+## Phase
+
+An angle in the range 0 .. 2 * PI _radians_
+
+' Math library uses radians, so we do too
+
+1 complete revolution every 1/f seconds
+
+The change in phase from one sample to the next we will call _delta_
+
+The current _phase angle_ will be called _theta_
+
+The amplitude is calculated as _sin theta_
+
+---
+
 ## Higher order functions
 
 ``` fsharp
@@ -202,6 +210,7 @@ let makeSine sampleRate frequency =
     let gen theta = Some (Math.Sin theta, (theta + delta) % TWOPI)
     Seq.unfold gen 0.0
 ```
+
 In functional languages, we don't like write our own loops.
 
 The standard library provides functions that allow us to provide repeated operations. Many of these are _higher order functions_ - functions that take other functions as an argument.
@@ -262,6 +271,23 @@ If we make the generator function the first argument we can use partial applicat
 <https://en.wikipedia.org/wiki/Karplus%E2%80%93Strong_string_synthesis>
 
 Developed in the early 1980s. This is a simple algorithm to generate plucked or hammered instrument sounds
+
+``` fsharp
+let pluck sampleRate frequency =
+    // frequency is determined by the length of the buffer
+    let bufferLength = sampleRate / int frequency
+    // start with noise
+    let buffer = makeNoise |> Seq.take bufferLength |> Seq.toArray
+    // go round the buffer repeatedly, playing each sample
+    // then averaging with previous and decaying
+    let gen index =
+        let nextIndex = (index + 1) % bufferLength
+        let value = buffer.[nextIndex]
+        buffer.[nextIndex] <- (value + buffer.[index]) / 2.0 * 0.996
+        Some(value, nextIndex)
+
+    Seq.unfold gen (bufferLength - 1)
+```
 
 ' snippet aud5
 
