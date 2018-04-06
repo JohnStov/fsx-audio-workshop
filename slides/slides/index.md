@@ -27,6 +27,10 @@ This is a workshop with 2 halves:
 1. Generating sounds;
 2. Responding to asynchronous inputs.
 
+slides and code at:
+
+https://github.com/JohnStov/fsx-audio-workshop
+
 ***
 
 ## What is sound?
