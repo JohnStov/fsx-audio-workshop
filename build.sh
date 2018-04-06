@@ -12,6 +12,7 @@ then
   packages/build/FAKE/tools/FAKE.exe $@ --fsiargs build.fsx
 else
   # use mono
+  export FrameworkPathOverride=$(dirname $(which mono))/../lib/mono/4.5/
   mono .paket/paket.exe restore
   exit_code=$?
   if [ $exit_code -ne 0 ]; then
