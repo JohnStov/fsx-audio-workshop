@@ -24,9 +24,8 @@
 
 This is a workshop with 2 halves:
 
-1. Generating sounds
-2. Responding to asynchronous inputs
-
+1. Generating sounds;
+2. Responding to asynchronous inputs.
 
 ***
 
@@ -105,13 +104,15 @@ Generate sequences of samples algorithmically, then perform D/A conversion
 
 ## Let's get coding!
 
-' I prefer VSCode with Ionide plugins
-' Create a new folder
-' Open folder in VSCode
-' Ctrl+Shift+P - F#: New Project - type: console - call it AudioWorkshop
-'   Gives us a new project with Fake & Paket
-' `git init` if you want to
-' open console (Ctrl+Shift+') - cd to AudioWorkshop and `dotnet run`
+VSCode with Ionide plugins
+
+- Create a new folder
+
+- Open folder in VSCode
+- Ctrl+Shift+P - F#: New Project - type: console - call it AudioWorkshop
+- `git init` if you want to
+
+- open console (Ctrl+Shift+') - cd to AudioWorkshop and `dotnet run`
 
 ---
 
@@ -119,24 +120,21 @@ Generate sequences of samples algorithmically, then perform D/A conversion
 
 We'll use **NAudio**: <https://github.com/naudio/NAudio>
 
-' open the project file
-' Ctrl+Shift+P - Paket: Add Nuget Package (to current project)
-' NAudio
-' Adds the dependency to the current project
+- open the project file
+
+- Ctrl+Shift+P - Paket: Add Nuget Package (to current project)
+
+- NAudio
 
 ---
 
 ## Implementing a provider
 
-' snippet aud1
+NAudio needs a callback
 
-' NAudio needs a callback
-' You do this by implementing the `IWaveProvider` interface
-' Tells NAudio about the structure of the data you'll be giving it.
-' Asks you to fill a buffer when more samples are needed
+You do this by implementing the `IWaveProvider` interface
 
-' There's a for loop and a mutable index
-' Note the |> operator in main
+(snippet aud1)
 
 ***
 
@@ -144,7 +142,7 @@ We'll use **NAudio**: <https://github.com/naudio/NAudio>
 
 Let's change this to provide an arbitrary set of samples and have the system play them
 
-' snippet aud2 - replace everything
+(snippet aud2 - replace everything)
 
 ---
 
@@ -152,9 +150,23 @@ Let's change this to provide an arbitrary set of samples and have the system pla
 
 Random access in lists is really expensive
 
-' I originally implemented AudioSample as float list
-' F# can't traverse the list to the end fast enough
-' change it and show what happens
+I originally implemented AudioSample as float list
+
+F# can't traverse the list to the end fast enough
+
+Change line 8 to
+
+``` fsharp
+type AudioStream = float list
+```
+
+and line 41 to
+
+``` fsharp
+List.init nSamples (fun _ -> random.NextDouble() |> rescale)
+```
+
+and see how it performs.
 
 ---
 
@@ -166,21 +178,17 @@ I don't want to have to define my entire sound before I play it
 
 Let's reimplement...
 
-' snippet aud3
-
-Note the use of an _Active Pattern_ in the output function
-
 `makeNoise` uses a recursive  _seq compehension_ to generate an infinite lazy sequence of random values
 
-' snippet aud3a
+(snippet aud3)
 
 We can use `take` to create a finite sequence from our infinite sequence
+
+(snippet aud3a)
 
 ***
 
 ## More complex signals -  Sinewave
-
-' snippet aud4
 
 We need to introduce _frequency_ (f) - how often the waveform repeats per second
 
@@ -223,7 +231,9 @@ let makeSine sampleRate frequency =
     Seq.unfold gen 0.0
 ```
 
-In functional languages, we don't like write our own loops.
+(snippet aud4)
+
+In functional programming, we generally don't like writing loops.
 
 The standard library provides functions that allow us to provide repeated operations. Many of these are _higher order functions_ - functions that take other functions as an argument.
 
@@ -299,7 +309,7 @@ let pluck sampleRate frequency =
     Seq.unfold gen (bufferLength - 1)
 ```
 
-' snippet aud5
+(snippet aud5)
 
 ***
 
@@ -318,13 +328,15 @@ let generate fn sampleRate (frequency : AudioStream) =
         Some (fn theta, (theta + delta) % TWOPI)
     Seq.unfold gen 0.0
 
+let makeSine = generate Math.Sin
+
 let Constant value =
     Seq.unfold (fun _ -> Some(value, ())) ()
 
 let sin440 = makeSine (Constant 440.0)
 ```
 
-' snippet aud6
+(snippet aud6)
 
 ---
 
@@ -341,7 +353,7 @@ let wobblySine =
     vibrato |> makeSine
 ```
 
-' snippet aud6a
+(snippet aud6a)
 
 ---
 
@@ -360,7 +372,7 @@ let vibrato =
      makeSine (Constant 3.0) |> gain (Constant 20.0) |> offset (Constant 440.0)
 ```
 
-' snippet aud6b
+(snippet aud6b)
 
 ---
 
@@ -372,15 +384,14 @@ Extract the obvious common code
 let zipMap fn seq1 seq2 =
     Seq.zip seq1 seq2 |> Seq.map (fun (x, y) -> fn x y)
 
-let gain =
-    zipMap (*)
+let gain seq1 seq2 =
+    zipMap (*) seq1 seq2
 
-let offset =
-    zipMap (+)
+let offset seq1 seq2 =
+    zipMap (+) seq1 seq2
 ```
 
-' snippet aud6c
-
+(snippet aud6c)
 
 ***
 
@@ -409,6 +420,10 @@ NAudio has a MIDI support.
 We need an input library: `NAudio` again
 
 ``` fsharp
+open NAudio.Midi
+```
+
+``` fsharp
 let getInDevice () = 
     let deviceRange = [0.. MidiIn.NumberOfDevices-1]
     match deviceRange |> List.tryFind (fun n -> MidiIn.DeviceInfo(n).ProductName = "MPKmini2") with
@@ -420,7 +435,7 @@ let getInDevice () =
         None
 ```
 
-' snippet aud7
+(snippet aud7)
 
 ---
 
@@ -438,7 +453,7 @@ let waitForKeyPress () =
             goOn <- false
 ```
 
-' snippet aud8
+(snippet aud8)
 
 ***
 
@@ -451,20 +466,6 @@ let waitForKeyPress () =
 One of the great features of FSharp is that events also implement IObservable. This means that you have the power of Rx available automatically.
 
 Rx gives you the power to compose events in the same way that IEnumerable allows you to compose sequences.
-
----
-
-`IObservable<T>` is the semantic dual of `IEnumerable<T>`
-
-`IObservable<T>.Subscribe()` <-> `IEnumerable<T>.GetEnumerator()`
-
-`IObserver` is the semantic dual of `IEnumerator`
-
-`IObserver.OnNext(T)` <-> `IEnumerator.MoveNext()`
-
-`IObserver.OnError(Exception)` <-> `IEnumerator.MoveNext()` throws
-
-`IObserver.OnEnded()` <-> `IEnumerator.MoveNext()` returns `false`
 
 ***
 
@@ -503,7 +504,7 @@ moving from one semitone to the next increases the frequency by the 12th root of
         | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
 ```
 
-' snippet aud8
+(snippet aud8)
 
 ---
 
@@ -520,7 +521,7 @@ let midiEvents (evt : IObservable<MidiInMessageEventArgs>) =
     evt |> Observable.map (fun e -> e.MidiEvent)
 ```
 
-' snippet aud9a
+(snippet aud9a)
 
 Then ignore any events that aren't note events:
 
@@ -530,7 +531,7 @@ let noteEvents (evt : IObservable<MidiEvent>) =
     |> Observable.map (fun e -> e :?> NoteEvent)
 ```
 
-'snippet aud9b
+(snippet aud9b)
 
 `Observable` allows us to treat events just like sequences.
 
@@ -555,7 +556,7 @@ let (|NoteOn|_|) (evt : NoteEvent) =
     | _, _ -> None
 ```
 
-' snippet aud10
+(snippet aud10)
 
 ---
 
@@ -574,15 +575,25 @@ let noteStream (evt : IObservable<NoteEvent>) =
     Seq.unfold (fun _ -> Some(noteNumberToFrequency note, ())) ()
 ```
 
-' snippet aud11
+(snippet aud11)
 
 ---
 
 Putting it all together
 
 ``` fsharp
+let waitForKeyPress () = 
+    let mutable goOn = true
+    while goOn do
+        let key = Console.ReadKey(true)
+        if key.KeyChar = ' ' 
+        then 
+            goOn <- false
+```
+
+``` fsharp
 let runWith (input : MidiIn) (output : IWavePlayer) =
-    input.MessageReceived |> noteStream |> makeSine |> StreamProvider |> output.Init
+    input.MessageReceived |> midiEvents |> noteEvents |> noteStream |> makeSine |> StreamProvider |> output.Init
 
     output.Play ()
     input.Start ()
@@ -601,7 +612,7 @@ let main _ =
         0
 ```
 
-' snippet aud12
+(snippet aud12)
 
 ***
 
@@ -633,7 +644,7 @@ let wobblySine depth modulation freq =
     vibrato depth modulation freq |> makeSine
 ```
 
-' snippet aud13
+(snippet aud13)
 
 Don't forget: these functions are in the domain of _streams_, not individual values
 
@@ -657,7 +668,7 @@ let controlStream controller (evt : IObservable<MidiInMessageEventArgs>) =
     Seq.unfold (fun _ -> Some(float controlValue, ())) ()
 ```
 
-' snippet aud14
+(snippet aud14)
 
 ---
 
@@ -672,7 +683,7 @@ let runWith (input : MidiIn) (output : IWavePlayer) =
     ...
 ```
 
-' snippet aud15
+(snippet aud15)
 
 ***
 
