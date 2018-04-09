@@ -267,6 +267,50 @@ let noteNumberToFrequency noteNumber =
     | 0 -> 0.0
     | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
 
+// aud9-alt without Midi => need System.Reactive dependency (prerelease)
+type NoteEvent = NoteOff | NoteOn of int
+
+let noteStream (evt : IObservable<NoteEvent>) =
+    let mutable note = 0
+
+    evt.Add(fun event ->
+        note <- match event with
+                | NoteOff ->  0
+                | NoteOn n -> n)
+
+    Seq.unfold (fun _ -> Some(midiNoteNumberToFrequency note, ())) ()
+
+let rec readKey onKey =
+    async {
+        let key = Console.ReadKey()
+        onKey key.KeyChar
+        return! readKey onKey
+    }
+
+let mapCharToNoteEvent = function
+    | Some 'q' -> NoteOn 69
+    | Some 's' -> NoteOn 70
+    | Some 'd' -> NoteOn 71
+    | Some 'f' -> NoteOn 72
+    | Some 'g' -> NoteOn 73
+    | Some 'h' -> NoteOn 74
+    | Some 'j' -> NoteOn 75
+    | Some 'k' -> NoteOn 76
+    | Some 'l' -> NoteOn 77
+    | Some 'm' -> NoteOn 78
+    | Some 'ù' -> NoteOn 79
+    | Some '*' -> NoteOn 80
+    | _ -> NoteOff
+
+let output = new WasapiOut(AudioClientShareMode.Shared, 1)
+
+open System.Reactive.Linq
+
+let source = Observable.Create<char> (fun (observer: IObserver<char>) -> readKey observer.OnNext |> Async.Start; null :> IDisposable)
+source
+    .Buffer(TimeSpan.FromMilliseconds(50.), 1)
+    .Select(Seq.tryHead >> mapCharToNoteEvent)
+
 // aud9a
 
 let midiEvents (evt : IObservable<MidiInMessageEventArgs>) =
