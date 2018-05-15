@@ -3,6 +3,7 @@ source https://www.nuget.org/api/v2
 framework: >= net461
 nuget FSharp.Core
 nuget NAudio
+nuget System.Memory
 
 group Build
 source https://www.nuget.org/api/v2

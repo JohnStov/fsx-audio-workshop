@@ -2,6 +2,8 @@ module AudioPlayground
 
 open NAudio.Wave
 open System
+open System.Runtime.InteropServices
+
 open NAudio.CoreAudioApi
 open NAudio.Midi
 
@@ -17,19 +19,13 @@ type StreamProvider (waveform: AudioStream) =
         member __.WaveFormat with get() = waveFormat
 
         member __.Read (buffer, offset, count) =
-            let mutable writeIndex = 0
-            let putSample sample buffer =
-                // convert float to byte array
-                let bytes = BitConverter.GetBytes((float32)sample)
-                // blit into correct position in buffer
-                Array.blit bytes 0 buffer (offset + writeIndex) bytes.Length
-                // update position
-                writeIndex <- writeIndex + bytes.Length
-
+            let spanFloats = MemoryMarshal.Cast<byte, float>(buffer.AsSpan(offset)) 
+            
             let nSamples = count / bytesPerSample
-            for _ in [1 .. nSamples] do
+            for nSample in [0 .. nSamples-1] do
                 let sample = if enumerator.MoveNext() then enumerator.Current else 0.0
-                putSample sample buffer
+                let insertPoint = spanFloats.Slice (nSample, 1)
+                insertPoint.Fill sample
             // return the number of bytes written
             nSamples * bytesPerSample
 let TWOPI = 2.0 * Math.PI
