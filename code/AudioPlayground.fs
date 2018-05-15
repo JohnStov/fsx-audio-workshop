@@ -96,7 +96,6 @@ let noteNumberToFrequency noteNumber =
     match noteNumber with
     | 0 -> 0.0
     | _ -> Math.Pow(2.0, (float (noteNumber-69)) / 12.0) * 440.0
-
 let noteStream (evt : IObservable<NoteEvent>) = 
     let mutable note = 0
 
@@ -153,10 +152,10 @@ let merge (strm : AudioStream) (evt: IObservable<AudioStream>) =
 let trigger (generator: float -> AudioStream) (trig: IObservable<NoteEvent>) : AudioStream=
     let noteOns = trig |> Observable.filter (fun evt -> evt :? NoteOnEvent && evt.Velocity > 0)
     let freqs = noteOns |> Observable.map (fun evt -> noteNumberToFrequency evt.NoteNumber)
-    let plucks = freqs |> Observable.map generator
+    let strms = freqs |> Observable.map generator
     
     let initial = Constant (0.0)
-    merge initial plucks
+    merge initial strms
 
 let runWith (input : MidiIn) (output : IWavePlayer) =
     let events = input.MessageReceived |> midiEvents |> channelFilter 1
